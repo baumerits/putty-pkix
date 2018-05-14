@@ -514,10 +514,10 @@ index e565a64a..8d5df94b 100644
 \ No newline at end of file
 diff --git a/windows/wincrypto.c b/windows/wincrypto.c
 new file mode 100644
-index 00000000..d738b3f1
+index 00000000..0f8025e5
 --- /dev/null
 +++ b/windows/wincrypto.c
-@@ -0,0 +1,417 @@
+@@ -0,0 +1,420 @@
 +#ifdef USE_CAPI
 +/*
 + * PuTTY wincrypt patch main file.
@@ -674,6 +674,9 @@ index 00000000..d738b3f1
 +			break;
 +		}
 +		if (!CryptAcquireCertificatePrivateKey(pCertCtx, CRYPT_ACQUIRE_CACHE_FLAG | CRYPT_ACQUIRE_NO_HEALING | CRYPT_ACQUIRE_SILENT_FLAG | CRYPT_ACQUIRE_ALLOW_NCRYPT_KEY_FLAG, NULL, &hCryptProvOrNCryptKey, &dwKeySpec, &fCallerFreeProvAlwaysFalse)) {
++			continue;
++		}
++		if (CertVerifyTimeValidity(NULL, pCertCtx->pCertInfo) != 0) {
 +			continue;
 +		}
 +		dwCertCount++;
