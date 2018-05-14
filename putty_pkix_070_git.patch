@@ -1,8 +1,18 @@
+diff --git a/LICENCE b/LICENCE
+index 7c49ceb3..22093bc7 100644
+--- a/LICENCE
++++ b/LICENCE
+@@ -1,4 +1,4 @@
+-PuTTY is copyright 1997-2017 Simon Tatham.
++PuTTY is copyright 2018 Roman Baumer, Sven Soltermann, Ulf Frisk, Simon Tatham.
+ 
+ Portions copyright Robert de Bath, Joris van Rantwijk, Delian
+ Delchev, Andreas Schultz, Jeroen Massar, Wez Furlong, Nicolas Barry,
 diff --git a/Recipe b/Recipe
-index b3739b97..36291743 100644
+index f5458122..9b3e7436 100644
 --- a/Recipe
 +++ b/Recipe
-@@ -144,7 +144,7 @@ endif
+@@ -145,7 +145,7 @@ endif
  !end
  
  !begin vc vars
@@ -11,7 +21,7 @@ index b3739b97..36291743 100644
  !end
  
  !begin clangcl vars
-@@ -219,7 +219,7 @@ endif
+@@ -220,7 +220,7 @@ endif
  # _WIN32_IE is required to expose identifiers that only make sense on
  # systems with IE5+ installed, such as some arguments to SHGetFolderPath().
  # WINVER etc perform a similar function for FlashWindowEx().
@@ -54,11 +64,26 @@ index b3739b97..36291743 100644
  
  pterm    : [X] GTKTERM uxmisc misc ldisc settings uxpty uxsel BE_NONE uxstore
           + uxsignal CHARSET cmdline uxpterm version time xpmpterm xpmptcfg
+diff --git a/misc.c b/misc.c
+index fc5b149d..9dd9ba81 100644
+--- a/misc.c
++++ b/misc.c
+@@ -1181,7 +1181,9 @@ char *buildinfo(const char *newline)
+     strbuf_catf(buf, ", emulating ");
+ #endif
+     strbuf_catf(buf, "Visual Studio", newline);
+-#if _MSC_VER == 1900
++#if _MSC_VER == 1914
++    strbuf_catf(buf, " 2017 / MSVC++ 15.7.1");
++#elif _MSC_VER == 1900
+     strbuf_catf(buf, " 2015 / MSVC++ 14.0");
+ #elif _MSC_VER == 1800
+     strbuf_catf(buf, " 2013 / MSVC++ 12.0");
 diff --git a/mkfiles.pl b/mkfiles.pl
-index a0a78fee..c3b69579 100755
+index 1d83912b..2fffc9f0 100755
 --- a/mkfiles.pl
 +++ b/mkfiles.pl
-@@ -1022,7 +1022,7 @@ if (defined $makefiles{'vcproj'}) {
+@@ -1136,7 +1136,7 @@ if (defined $makefiles{'vcproj'}) {
      }
  }
  
@@ -67,7 +92,7 @@ index a0a78fee..c3b69579 100755
  
      ##-- Visual Studio 2010+ Solution and Projects
  
-@@ -1217,7 +1217,7 @@ if (defined $makefiles{'vstudio10'} || defined $makefiles{'vstudio12'}) {
+@@ -1331,7 +1331,7 @@ if (defined $makefiles{'vstudio10'} || defined $makefiles{'vstudio12'}) {
              "      <SuppressStartupBanner>true</SuppressStartupBanner>\n" .
              "      <WarningLevel>Level3</WarningLevel>\n" .
              "      <AdditionalIncludeDirectories>" . (join ";", map {"..\\..\\$dirpfx$_"} @srcdirs) . ";%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>\n" .
@@ -76,7 +101,7 @@ index a0a78fee..c3b69579 100755
              "      <AssemblerListingLocation>.\\Release\\</AssemblerListingLocation>\n" .
              "      <PrecompiledHeaderOutputFile>.\\Release\\$windows_project.pch</PrecompiledHeaderOutputFile>\n" .
              "      <ObjectFileName>.\\Release\\</ObjectFileName>\n" .
-@@ -1233,6 +1233,7 @@ if (defined $makefiles{'vstudio10'} || defined $makefiles{'vstudio12'}) {
+@@ -1347,6 +1347,7 @@ if (defined $makefiles{'vstudio10'} || defined $makefiles{'vstudio12'}) {
              "    <ResourceCompile>\n" .
              "      <Culture>0x0809</Culture>\n" .
              "      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n" .
@@ -84,7 +109,7 @@ index a0a78fee..c3b69579 100755
              "    </ResourceCompile>\n" .
              "    <Bscmake>\n" .
              "      <SuppressStartupBanner>true</SuppressStartupBanner>\n" .
-@@ -1256,7 +1257,7 @@ if (defined $makefiles{'vstudio10'} || defined $makefiles{'vstudio12'}) {
+@@ -1370,7 +1371,7 @@ if (defined $makefiles{'vstudio10'} || defined $makefiles{'vstudio12'}) {
              "      <MinimalRebuild>true</MinimalRebuild>\n" .
              "      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>\n" .
              "      <AdditionalIncludeDirectories>" . (join ";", map {"..\\..\\$dirpfx$_"} @srcdirs) . ";%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>\n" .
@@ -93,7 +118,7 @@ index a0a78fee..c3b69579 100755
              "      <AssemblerListingLocation>.\\Debug\\</AssemblerListingLocation>\n" .
              "      <PrecompiledHeaderOutputFile>.\\Debug\\$windows_project.pch</PrecompiledHeaderOutputFile>\n" .
              "      <ObjectFileName>.\\Debug\\</ObjectFileName>\n" .
-@@ -1273,6 +1274,7 @@ if (defined $makefiles{'vstudio10'} || defined $makefiles{'vstudio12'}) {
+@@ -1387,6 +1388,7 @@ if (defined $makefiles{'vstudio10'} || defined $makefiles{'vstudio12'}) {
              "    <ResourceCompile>\n" .
              "      <Culture>0x0809</Culture>\n" .
              "      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n" .
@@ -134,10 +159,10 @@ index a168e522..823e8558 100644
                  *retstr = dupprintf("Couldn't load private key (%s)", error);
  		return PAGEANT_ACTION_FAILURE;
 diff --git a/ssh.c b/ssh.c
-index 3f325bec..5e1d4ce9 100644
+index 1d80e919..18f5e71b 100644
 --- a/ssh.c
 +++ b/ssh.c
-@@ -4485,6 +4485,23 @@ static int do_ssh1_login(Ssh ssh, const unsigned char *in, int inlen,
+@@ -4445,6 +4445,23 @@ static int do_ssh1_login(Ssh ssh, const unsigned char *in, int inlen,
                      logeventf(ssh, "Key file contains public key only");
  		s->privatekey_encrypted = rsakey_encrypted(s->keyfile,
                                                             NULL);
@@ -161,7 +186,7 @@ index 3f325bec..5e1d4ce9 100644
  	    } else {
  		char *msgbuf;
  		logeventf(ssh, "Unable to load key (%s)", error);
-@@ -10061,6 +10078,23 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
+@@ -9372,6 +9389,23 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
                          logeventf(ssh, "Key file contains public key only");
  		    s->privatekey_encrypted =
  			ssh2_userkey_encrypted(s->keyfile, NULL);
@@ -185,7 +210,7 @@ index 3f325bec..5e1d4ce9 100644
  		} else {
  		    char *msgbuf;
  		    logeventf(ssh, "Unable to load key (%s)", 
-@@ -10477,8 +10511,14 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
+@@ -9770,8 +9804,14 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
  		s->agentp += 4;
  		s->pkblob = (char *)s->agentp;
  		s->agentp += s->pklen;
@@ -203,7 +228,7 @@ index 3f325bec..5e1d4ce9 100644
  		s->agentp += 4;
  		s->commentp = (char *)s->agentp;
 diff --git a/ssh.h b/ssh.h
-index a7902f2c..7ecdf21f 100644
+index 371de837..f01963a0 100644
 --- a/ssh.h
 +++ b/ssh.h
 @@ -93,6 +93,10 @@ struct RSAKey {
@@ -217,7 +242,7 @@ index a7902f2c..7ecdf21f 100644
  #endif
      char *comment;
  };
-@@ -475,6 +479,9 @@ extern const struct ssh_signkey ssh_ecdsa_ed25519;
+@@ -470,6 +474,9 @@ extern const struct ssh_signkey ssh_ecdsa_ed25519;
  extern const struct ssh_signkey ssh_ecdsa_nistp256;
  extern const struct ssh_signkey ssh_ecdsa_nistp384;
  extern const struct ssh_signkey ssh_ecdsa_nistp521;
@@ -512,6 +537,23 @@ index e565a64a..8d5df94b 100644
 +};
 +#endif USE_X509
 \ No newline at end of file
+diff --git a/version.h b/version.h
+index 26242ad6..60504b8d 100644
+--- a/version.h
++++ b/version.h
+@@ -8,9 +8,9 @@
+  * default stuff used for local development runs of 'make'.
+  */
+ 
+-#define TEXTVER "Unidentified build"
+-#define SSHVER "PuTTY-Unidentified-Local-Build"
+-#define BINARY_VERSION 0,0,0,0
++#define TEXTVER "Release 0.70 PKIX"
++#define SSHVER "PuTTY-Release-0.70-PKIX"
++#define BINARY_VERSION 0,70,0,0
+ 
+ #ifndef SOURCE_COMMIT
+ /*
 diff --git a/windows/wincrypto.c b/windows/wincrypto.c
 new file mode 100644
 index 00000000..0f8025e5
@@ -950,7 +992,7 @@ index 00000000..91db7aad
 +void *capi_load_key(unsigned char **blob, int *len);
 +#endif /* USE_CAPI */
 diff --git a/windows/winpgnt.c b/windows/winpgnt.c
-index 1919a9b8..fd39b7e3 100644
+index ebb6c6ac..dcbc050d 100644
 --- a/windows/winpgnt.c
 +++ b/windows/winpgnt.c
 @@ -46,6 +46,12 @@
@@ -966,7 +1008,7 @@ index 1919a9b8..fd39b7e3 100644
  
  #define APPNAME "Pageant"
  
-@@ -336,9 +342,18 @@ void keylist_update(void)
+@@ -335,9 +341,18 @@ void keylist_update(void)
               * stop and leave out a tab character. Urgh.
               */
  
@@ -988,7 +1030,7 @@ index 1919a9b8..fd39b7e3 100644
  
              pos = 0;
              while (1) {
-@@ -347,7 +362,11 @@ void keylist_update(void)
+@@ -346,7 +361,11 @@ void keylist_update(void)
                      break;
                  listentry[pos++] = '\t';
              }
@@ -1001,7 +1043,7 @@ index 1919a9b8..fd39b7e3 100644
                  /*
                   * Remove the bit-count field, which is between the
                   * first and second \t.
-@@ -467,6 +486,100 @@ static void win_add_keyfile(Filename *filename)
+@@ -466,6 +485,100 @@ static void win_add_keyfile(Filename *filename)
      return;
  }
  
@@ -1102,7 +1144,7 @@ index 1919a9b8..fd39b7e3 100644
  /*
   * Prompt for a key file to add, and add it.
   */
-@@ -569,6 +682,13 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
+@@ -568,6 +681,13 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
  	    keylist = NULL;
  	    DestroyWindow(hwnd);
  	    return 0;
@@ -1116,7 +1158,7 @@ index 1919a9b8..fd39b7e3 100644
  	  case 101:		       /* add key */
  	    if (HIWORD(wParam) == BN_CLICKED ||
  		HIWORD(wParam) == BN_DOUBLECLICKED) {
-@@ -891,6 +1011,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
+@@ -883,6 +1003,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
  	    }
  	    prompt_add_keyfile();
  	    break;
@@ -1133,7 +1175,7 @@ index 1919a9b8..fd39b7e3 100644
  	  case IDM_ABOUT:
  	    if (!aboutbox) {
  		aboutbox = CreateDialog(hinst, MAKEINTRESOURCE(213),
-@@ -1271,6 +1401,12 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
+@@ -1257,6 +1387,12 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
      AppendMenu(systray_menu, MF_ENABLED, IDM_VIEWKEYS,
  	   "&View Keys");
      AppendMenu(systray_menu, MF_ENABLED, IDM_ADDKEY, "Add &Key");
