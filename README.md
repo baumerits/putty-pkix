@@ -1,10 +1,12 @@
 # putty-pkix
 
-**Please support the update, based on the upstream PuTTY (currently version 0.73), with the current smartcard features.**
+You like putty-pkix and you use it on a daily basis? Consider to donate a small amount for the open soure work...
+
+**Please support the update putty-pkix (currently version 0.70), based on the upstream PuTTY (currently version 0.73), with the current smartcard features.**
 
 Options | Link
 -- | --
-One time payments using Paypal | [![paypal](https://www.paypalobjects.com/en_US/CH/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=Y4Q29EUELMHES&source=url) 
+One time payments or monthly support using Paypal | [![paypal](https://www.paypalobjects.com/en_US/CH/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=Y4Q29EUELMHES&source=url) 
 Montly support using Patreon | [![Become a patron](https://c5.patreon.com/external/logo/become_a_patron_button.png)](https://www.patreon.com/bePatron?u=20056078)
 
 Thank you.
