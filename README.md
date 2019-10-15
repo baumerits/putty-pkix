@@ -2,7 +2,7 @@
 
 You like putty-pkix and you use it on a daily basis? Consider to donate a small amount for the open soure work...
 
-**Please support the update putty-pkix (currently version 0.70), based on the upstream PuTTY (currently version 0.73), with the current smartcard features.**
+**Please support the update of putty-pkix (currently version 0.70) with the changes on the upstream PuTTY (currently version 0.73).**
 
 Options | Link
 -- | --
