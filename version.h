@@ -9,7 +9,7 @@
  */
 
 #define TEXTVER "Release 0.73-dev PKIX"
-#define SSHVER "PuTTY-Release-0.70-dev-PKIX"
+#define SSHVER "PuTTY-Release-0.73-dev-PKIX"
 #define BINARY_VERSION 0,73,0,0
 
 #ifndef SOURCE_COMMIT
