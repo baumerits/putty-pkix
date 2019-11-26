@@ -13,6 +13,7 @@
 #include "mpint.h"
 #include "ssh.h"
 #include "misc.h"
+#include "wincrypto.h"
 
 #define rsa_signature "SSH PRIVATE KEY FILE FORMAT 1.1\n"
 
@@ -621,10 +622,27 @@ ssh2_userkey *ssh2_load_userkey(
     bool is_mac, old_fmt;
     int passlen = passphrase ? strlen(passphrase) : 0;
     const char *error = NULL;
+	Filename *commentPath;
 
     ret = NULL;                        /* return NULL for most errors */
     encryption = comment = mac = NULL;
     public_blob = private_blob = NULL;
+
+#ifdef HAS_WINX509
+	if (0 == strncmp("cert://", filename->path, 7)
+		|| 0 == strncmp("x509://", filename->path, 7)) {
+		commentPath = filename_copy(filename);
+		ret = snew(ssh2_userkey);
+		ret->comment = commentPath->path;
+
+		ret->key = ssh_key_new_priv(
+			&ssh_rsa_wincrypt, make_ptrlen(commentPath->path, strlen(commentPath->path)), make_ptrlen(NULL, 0));
+
+		if (errorstr)
+			*errorstr = NULL;
+		return ret;
+	}
+#endif /*HAS_WINX509*/
 
     fp = f_open(filename, "rb", false);
     if (!fp) {
@@ -1058,7 +1076,7 @@ bool openssh_loadpub(FILE *fp, char **algorithm,
     return false;
 }
 
-bool ssh2_userkey_loadpub(const Filename *filename, char **algorithm,
+bool ssh2_userkey_loadpub(const Filename **filename, char **algorithm,
                           BinarySink *bs,
                           char **commentptr, const char **errorstr)
 {
@@ -1069,7 +1087,25 @@ bool ssh2_userkey_loadpub(const Filename *filename, char **algorithm,
     const char *error = NULL;
     char *comment = NULL;
 
-    fp = f_open(filename, "rb", false);
+#ifdef HAS_WINX509
+	alg = NULL;
+	if (0 == strncmp("cert://", (*filename)->path, 7)) {
+		alg = &ssh_rsa_wincrypt;
+	}
+	if (0 == strncmp("x509://", (*filename)->path, 7)) {
+		alg = &ssh_x509_wincrypt;
+	}
+	if (alg != NULL) {
+		if (algorithm)
+			*algorithm = dupstr(alg->ssh_id);
+		capi_load_key(filename, bs);
+		if (commentptr)
+			(*commentptr) = dupstr((*filename)->path);
+		return true;
+	}
+#endif /* HAS_WINX509 */
+
+	fp = f_open((*filename), "rb", false);
     if (!fp) {
         error = "can't open file";
         goto error;
@@ -1520,7 +1556,11 @@ char *ssh2_fingerprint_blob(ptrlen blob)
          * No algorithm available (which means a seriously confused
          * key blob, but there we go). Return only the hash.
          */
-        return dupstr(fingerprint_str);
+#ifdef HAS_WINX509
+		return dupcat("x509v3-sign-rsa\t", fingerprint_str, NULL);
+#else
+		return dupcat(fingerprint_str, NULL);
+#endif
     }
 }
 
@@ -1586,6 +1626,12 @@ int key_type(const Filename *filename)
     FILE *fp;
     int ret;
 
+#ifdef HAS_WINX509
+	if (0 == strncmp("cert://", filename->path, 7)
+		|| 0 == strncmp("x509://", filename->path, 7)) {
+		return SSH_KEYTYPE_SSH2;
+	}
+#endif /* HAS_WINX509 */
     fp = f_open(filename, "r", false);
     if (!fp)
         return SSH_KEYTYPE_UNOPENABLE;

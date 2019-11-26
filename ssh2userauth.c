@@ -269,7 +269,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
             keytype == SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH) {
             const char *error;
             s->publickey_blob = strbuf_new();
-            if (ssh2_userkey_loadpub(s->keyfile,
+			if (ssh2_userkey_loadpub(&(s->keyfile),
                                      &s->publickey_algorithm,
                                      BinarySink_UPCAST(s->publickey_blob),
                                      &s->publickey_comment, &error)) {
@@ -703,6 +703,13 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                 {
                     BinarySource src[1];
                     BinarySource_BARE_INIT_PL(src, s->pk);
+#ifdef HAS_WINX509
+						if ((s->comment.len > 7)
+							&& (0 == strncmp("x509://", s->comment.ptr, 7))) {
+							s->alg = make_ptrlen(dupstr(ssh_x509_wincrypt.ssh_id), strlen(ssh_x509_wincrypt.ssh_id));
+						} else
+
+#endif /* HAS_WINX509 */
                     s->alg = get_string(src);
                 }
 

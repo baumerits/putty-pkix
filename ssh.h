@@ -941,6 +941,10 @@ extern const ssh_kex ssh_ec_kex_nistp521;
 extern const ssh_kexes ssh_ecdh_kex;
 extern const ssh_keyalg ssh_dss;
 extern const ssh_keyalg ssh_rsa;
+#ifdef HAS_WINX509
+extern const ssh_keyalg ssh_rsa_wincrypt;
+extern const ssh_keyalg ssh_x509_wincrypt;
+#endif /* HAS_WINX509 */
 extern const ssh_keyalg ssh_ecdsa_ed25519;
 extern const ssh_keyalg ssh_ecdsa_nistp256;
 extern const ssh_keyalg ssh_ecdsa_nistp384;
@@ -1152,7 +1156,7 @@ bool ssh2_userkey_encrypted(const Filename *filename, char **comment);
 ssh2_userkey *ssh2_load_userkey(
     const Filename *filename, const char *passphrase, const char **errorstr);
 bool ssh2_userkey_loadpub(
-    const Filename *filename, char **algorithm, BinarySink *bs,
+    const Filename **filename, char **algorithm, BinarySink *bs,
     char **commentptr, const char **errorstr);
 bool ssh2_save_userkey(
     const Filename *filename, ssh2_userkey *key, char *passphrase);
