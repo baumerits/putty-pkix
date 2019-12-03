@@ -1098,10 +1098,15 @@ bool ssh2_userkey_loadpub(const Filename **filename, char **algorithm,
 	if (alg != NULL) {
 		if (algorithm)
 			*algorithm = dupstr(alg->ssh_id);
-		capi_load_key(filename, bs);
+		if (capi_load_key(filename, bs)) {
 		if (commentptr)
 			(*commentptr) = dupstr((*filename)->path);
 		return true;
+		} else {
+			if (errorstr)
+				*errorstr = dupstr("User aborted");
+			return false;
+		}
 	}
 #endif /* HAS_WINX509 */
 

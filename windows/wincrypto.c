@@ -438,15 +438,15 @@ static void wincrypto_sign(ssh_key *key, ptrlen data,
 				pbSig = snewn(cbSig, BYTE);
 
 				/* CSP implementation */
-				if ((status = CryptCreateHash((HCRYPTPROV)hCryptProvOrNCryptKey, alg, 0, 0, &hHash)) != 0) {
+				if (!CryptCreateHash((HCRYPTPROV)hCryptProvOrNCryptKey, alg, 0, 0, &hHash)) {
 					goto Cleanup;
 				}
 
-				if ((status = CryptHashData(hHash, data.ptr, data.len, 0)) != 0) {
+				if (!CryptHashData(hHash, data.ptr, data.len, 0)) {
 					goto Cleanup;
 				}
 
-				if ((status = CryptSignHash(hHash, dwSpec, NULL, 0, pbSig, &cbSig)) != 0) {
+				if (!CryptSignHash(hHash, dwSpec, NULL, 0, pbSig, &cbSig)) {
 					goto Cleanup;
 				}
 
@@ -547,7 +547,7 @@ static void wincrypto_freekey(ssh_key *key)
 /*
  * Load a rsa key from a certificate in windows certificate personal store.
  */
-void capi_load_key(const Filename **filename, BinarySink *bs)
+BOOL capi_load_key(const Filename **filename, BinarySink *bs)
 {
 	BOOL result;
 	PCCERT_CONTEXT pCertContext;
@@ -561,11 +561,11 @@ void capi_load_key(const Filename **filename, BinarySink *bs)
 	if ((len < 7)
 		|| !(0 == strncmp("cert://", (*filename)->path, 7)
 			|| (isX509 = (0 == strncmp("x509://", (*filename)->path, 7))))) {
-		return;
+		return false;
 	}
 	capi_select_cert((*filename)->path, &pCertContext, &hCertStore);
 	if (!pCertContext) {
-		return;
+		return false;
 	}
 
 	if ((*filename)->path[7] == '*') {
@@ -584,7 +584,7 @@ void capi_load_key(const Filename **filename, BinarySink *bs)
 	if (!result) {
 		CertFreeCertificateContext(pCertContext);
 		sfree(pbPublicKeyBlob);
-		return;
+		return false;
 	}
 
 	pRSAPubKey = (RSAPUBKEY*)(pbPublicKeyBlob + sizeof(BLOBHEADER));
@@ -605,7 +605,7 @@ void capi_load_key(const Filename **filename, BinarySink *bs)
 	sfree(pbPublicKeyBlob);
 	CertFreeCertificateContext(pCertContext);
 	CertCloseStore(hCertStore, CERT_CLOSE_STORE_FORCE_FLAG);
-	return;
+	return true;
 }
 
 const ssh_keyalg ssh_rsa_wincrypt = {

@@ -435,6 +435,7 @@ static void prompt_add_capikey(PSTR search)
 		message_box(err, APPNAME, MB_OK | MB_ICONERROR, HELPCTXID(errors_cantloadkey));
 	}
 	filename_free(fn);
+	if (err != NULL)
 	sfree(err);
 }
 
@@ -445,7 +446,7 @@ static void key_to_clipboard2(struct ssh2_userkey *key)
 {
 	BinarySink* bs;
 	char *buffer, *p, *psz;
-	int  i;
+	int  i, mbReturn;
 	HGLOBAL hClipBuffer;
 	Filename* filename;
 	strbuf *bblob;
@@ -460,12 +461,19 @@ static void key_to_clipboard2(struct ssh2_userkey *key)
 		filename_free(filename);
 		return;
 	}
+
 	if (isX509) {
-		MessageBox(0, "Operation not suppored", "Invalid operation", 0);
+		MessageBox(0, "Cannot copy the public key in x509v3-sign-rsa mode.", "Invalid operation", MB_ICONEXCLAMATION | MB_OK | MB_TASKMODAL);
 		filename_free(filename);
 		return;
 	}
 	
+	mbReturn = MessageBox(0, "Copy certificate public key to clipboard?\n\nHint: Copied in ssh authorized_keys format.",
+		"Copy public key", MB_ICONASTERISK | MB_YESNO | MB_TASKMODAL);
+
+	if (mbReturn == IDNO)
+		return;
+
 	capi_load_key(&filename, BinarySink_UPCAST(bblob));
 	buffer = snewn(strlen(key->key->vt->ssh_id) + 4 * ((bblob->len + 2) / 3) + strlen(key->comment) + 3, char);
 	strcpy(buffer, key->key->vt->ssh_id);
@@ -490,6 +498,7 @@ static void key_to_clipboard2(struct ssh2_userkey *key)
 			SetClipboardData(CF_TEXT, hClipBuffer);
 		}
 		CloseClipboard();
+		MessageBox(0, "Certificate public copied.", "Copy", MB_ICONINFORMATION | MB_OK | MB_TASKMODAL);
 	}
 	sfree(buffer);
 	strbuf_free(bblob);
