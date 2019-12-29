@@ -1,137 +1,72 @@
-This is the README for the source archive of PuTTY, a free Windows
-and Unix Telnet and SSH client.
+# putty-pkix
 
-If you want to rebuild PuTTY from source, we provide a variety of
-Makefiles and equivalents. (If you have fetched the source from
-Git, you'll have to generate the Makefiles yourself -- see
-below.)
+You like putty-pkix and you use it on a daily basis? Consider to donate a small amount for the open soure work...
 
-There are various compile-time directives that you can use to
-disable or modify certain features; it may be necessary to do this
-in some environments. They are documented in `Recipe', and in
-comments in many of the generated Makefiles.
+Options | Link
+-- | --
+One time payments or monthly support using Paypal | [![paypal](https://www.paypalobjects.com/en_US/CH/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=Y4Q29EUELMHES&source=url) 
+Montly support using Patreon | [![Become a patron](https://c5.patreon.com/external/logo/become_a_patron_button.png)](https://www.patreon.com/bePatron?u=20056078)
 
-For building on Windows:
+Thank you.
 
- - windows/Makefile.vc is for command-line builds on MS Visual C++
-   systems. Change into the `windows' subdirectory and type `nmake
-   -f Makefile.vc' to build all the PuTTY binaries.
+---
 
-   As of 2017, we successfully compile PuTTY with both Visual Studio
-   7 (2003) and Visual Studio 14 (2015), so our guess is that it will
-   probably build with versions in between those as well.
+Putty with x509v3-sign-rsa key type and CryptoAPI based smartcard implementation.
+This putty version can be used with PKIX-SSH by Roumen Petrov (http://roumenpetrov.info/secsh/)
 
-   (The binaries from Visual Studio 14 are only compatible with
-   Windows XP and up. Binaries from Visual Studio 7 ought to work
-   with anything from Windows 95 onward.)
+It's based on PuTTYwincrypt by Ulf Risk (https://github.com/ufrisk/puttywincrypt)
+The original PuTTY is found at: http://www.chiark.greenend.org.uk/~sgtatham/putty/
 
- - Inside the windows/MSVC subdirectory are MS Visual Studio project
-   files for doing GUI-based builds of the various PuTTY utilities.
-   These have been tested on Visual Studio 7 and 10.
+Except for Windows certificate store integration and x509v3-sign-rsa support pageant-pkix is identical to PuTTY.
 
-   You should be able to build each PuTTY utility by loading the
-   corresponding .dsp file in Visual Studio. For example,
-   MSVC/putty/putty.dsp builds PuTTY itself, MSVC/plink/plink.dsp
-   builds Plink, and so on.
+<img src="https://gist.githubusercontent.com/ufrisk/8dec5a98bcf875a6254f9e3aa35d12a0/raw/edad0efadd158d1226ebbf4d5587ed4b69f68242/putty_auth.png" height="250"/><img src="https://gist.githubusercontent.com/ufrisk/8dec5a98bcf875a6254f9e3aa35d12a0/raw/edad0efadd158d1226ebbf4d5587ed4b69f68242/putty_pageant_addcert.png" height="250"/>
 
- - windows/Makefile.mgw is for MinGW / Cygwin installations. Type
-   `make -f Makefile.mgw' while in the `windows' subdirectory to
-   build all the PuTTY binaries.
+Download
+========
+Download the binaries and the patch file stored in the root folder of this repository.
 
-   MinGW and friends can lag behind other toolchains in their support
-   for the Windows API. Compile-time levers are provided to exclude
-   some features; the defaults are set appropriately for the
-   'mingw-w64' cross-compiler provided with Ubuntu 14.04. If you are
-   using an older toolchain, you may need to exclude more features;
-   alternatively, you may find that upgrading to a recent version of
-   the 'w32api' package helps.
+Pageant-pkix Usage
+==================
+Start Pageant by clicking on it. To add a key stored in Windows crypto API right click on Pageant in the systray and select "Add X509 Certificate" in the menu. Whenever the private key is accessed the user may or may not be prompted by Windows to enter a passphrase/PIN depending on whether the key is protected or not.
 
- - windows/Makefile.lcc is for lcc-win32. Type `make -f
-   Makefile.lcc' while in the `windows' subdirectory. (You will
-   probably need to specify COMPAT=-DNO_MULTIMON.)
+Please note that it is not possible to add keys backed by Windows from the Pageant main GUI at the moment, only from the systray menu.
 
- - Inside the windows/DEVCPP subdirectory are Dev-C++ project
-   files for doing GUI-based builds of the various PuTTY utilities.
+To export the public key in the ssh authorized_keys format load the key into Pageant and double click on it. The public key will be copied into the clipboard in the authorized_keys format.
 
-The PuTTY team actively use Makefile.vc (with VC7/10) and Makefile.mgw
-(with mingw32), so we'll probably notice problems with those
-toolchains fairly quickly. Please report any problems with the other
-toolchains mentioned above.
+PuTTY-pkix Usage
+================
+To use a key backed by Windows please specify this key in the "Private key file for authentication:" text box found in PuTTY-pkix. This text box is found at Connection > SSH > Auth.
 
-For building on Unix:
+To select ANY key backed by Windows type (in the text box):
 
- - unix/configure is for Unix and GTK. If you don't have GTK, you
-   should still be able to build the command-line utilities (PSCP,
-   PSFTP, Plink, PuTTYgen) using this script. To use it, change into
-   the `unix' subdirectory, run `./configure' and then `make'. Or you
-   can do the same in the top-level directory (we provide a little
-   wrapper that invokes configure one level down), which is more like
-   a normal Unix source archive but doesn't do so well at keeping the
-   per-platform stuff in each platform's subdirectory; it's up to you.
+`x509://*`
 
- - unix/Makefile.gtk and unix/Makefile.ux are for non-autoconfigured
-   builds. These makefiles expect you to change into the `unix'
-   subdirectory, then run `make -f Makefile.gtk' or `make -f
-   Makefile.ux' respectively. Makefile.gtk builds all the programs but
-   relies on Gtk, whereas Makefile.ux builds only the command-line
-   utilities and has no Gtk dependence.
+In order to select a specific key by certificate thumbprint type:
 
- - For the graphical utilities, any of Gtk+-1.2, Gtk+-2.0, and Gtk+-3.0
-   should be supported. If you have more than one installed, you can
-   manually specify which one you want by giving the option
-   '--with-gtk=N' to the configure script where N is 1, 2, or 3.
-   (The default is the newest available, of course.) In the absence
-   of any Gtk version, the configure script will automatically
-   construct a Makefile which builds only the command-line utilities;
-   you can manually create this condition by giving configure the
-   option '--without-gtk'.
+`x509://thumbprint=<thumbprint_in_hex>`
 
- - pterm would like to be setuid or setgid, as appropriate, to permit
-   it to write records of user logins to /var/run/utmp and
-   /var/log/wtmp. (Of course it will not use this privilege for
-   anything else, and in particular it will drop all privileges before
-   starting up complex subsystems like GTK.) By default the makefile
-   will not attempt to add privileges to the pterm executable at 'make
-   install' time, but you can ask it to do so by running configure
-   with the option '--enable-setuid=USER' or '--enable-setgid=GROUP'.
+In order to select a specific key by part of certificate common name type:
 
- - The Unix Makefiles have an `install' target. Note that by default
-   it tries to install `man' pages; if you have fetched the source via
-   Git then you will need to have built these using Halibut
-   first - see below.
+`x509://cn=<part_of_common_name_to_search_for>`
 
- - It's also possible to build the Windows version of PuTTY to run
-   on Unix by using Winelib.  To do this, change to the `windows'
-   directory and run `make -f Makefile.mgw CC=winegcc RC=wrc'.
+Searching for all certificates may take a long time and "hang" PuTTY-pkix if there exist many certificates on slow smart cards in the certificate store.
 
-All of the Makefiles are generated automatically from the file
-`Recipe' by the Perl script `mkfiles.pl' (except for the Unix one,
-which is generated by the `configure' script; mkfiles.pl only
-generates the input to automake). Additions and corrections to Recipe,
-mkfiles.pl and/or configure.ac are much more useful than additions and
-corrections to the actual Makefiles, Makefile.am or Makefile.in.
+Note: also the PuTTYwincrypt syntax for RSA authentication (cert://*) is supported.
 
-The Unix `configure' script and its various requirements are generated
-by the shell script `mkauto.sh', which requires GNU Autoconf, GNU
-Automake, and Gtk; if you've got the source from Git rather
-than using one of our source snapshots, you'll need to run this
-yourself. The input file to Automake is generated by mkfiles.pl along
-with all the rest of the makefiles, so you will need to run mkfiles.pl
-and then mkauto.sh.
+Background
+==========
+The PuTTY-pkix patch was created in order to ease the use of X509 SSH authentication with smartcards. The easiest way to go with this seemed to be using the windows crypto api for this. This enabled PuTTY-pkix to function without bothering with any direct card drivers and pkcs#11 implementations. PuTTY-pkixs also works for soft certificates and keys as well as with other non-smartcard hardware devices.
 
-Documentation (in various formats including Windows Help and Unix
-`man' pages) is built from the Halibut (`.but') files in the `doc'
-subdirectory using `doc/Makefile'. If you aren't using one of our
-source snapshots, you'll need to do this yourself. Halibut can be
-found at <https://www.chiark.greenend.org.uk/~sgtatham/halibut/>.
+Building
+========
+Check out [build.md](BUILD.md) for build instructions.
 
-The PuTTY home web site is
+Version History
+===============
 
-    https://www.chiark.greenend.org.uk/~sgtatham/putty/
-
-If you want to send bug reports or feature requests, please read the
-Feedback section of the web site before doing so. Sending one-line
-reports saying `it doesn't work' will waste your time as much as
-ours.
-
-See the file LICENCE for the licence conditions.
+v0.73
+  - Update upstream PuTTY (version 0.73)
+ 
+v0.70
+  - First version.
+ 
