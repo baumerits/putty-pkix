@@ -47,6 +47,10 @@
 #define IDM_ADDKEY   0x0030
 #define IDM_HELP     0x0040
 #define IDM_ABOUT    0x0050
+#ifdef HAS_WINX509
+#define IDM_ADDCERT  0x0070
+#define IDM_ADDX509  0x0080
+#endif /* HAS_WINX509 */
 
 #define APPNAME "Pageant"
 
@@ -416,6 +420,106 @@ static void win_add_keyfile(Filename *filename)
     return;
 }
 
+#ifdef HAS_WINX509
+/*
+ * Add a key from a Windows certificate
+ */
+static void prompt_add_capikey(PSTR search)
+{
+	char *err;
+	Filename *fn = filename_from_str(search);
+	pageant_add_keyfile(fn, NULL, &err);
+	if (err == PAGEANT_ACTION_OK) {
+		keylist_update();
+	} else {
+		message_box(err, APPNAME, MB_OK | MB_ICONERROR, HELPCTXID(errors_cantloadkey));
+	}
+	filename_free(fn);
+	if (err != NULL)
+	sfree(err);
+}
+
+/*
+ * Copy key to clipboard in ssh authorized_keys format
+ */
+static void key_to_clipboard2(struct ssh2_userkey *key)
+{
+	BinarySink* bs;
+	char *buffer, *p, *psz;
+	int  i, mbReturn;
+	HGLOBAL hClipBuffer;
+	Filename* filename;
+	strbuf *bblob;
+	bool isX509 = false;
+
+	bblob = strbuf_new();
+	filename = filename_from_str(key->comment);
+	int len = strlen(filename->path);
+	if ((len < 7)
+		|| !(0 == strncmp("cert://", filename->path, 7)
+			|| (isX509 = (0 == strncmp("x509://", filename->path, 7))))) {
+		filename_free(filename);
+		return;
+	}
+
+	if (isX509) {
+		MessageBox(0, "Cannot copy the public key in x509v3-sign-rsa mode.", "Invalid operation", MB_ICONEXCLAMATION | MB_OK | MB_TASKMODAL);
+		filename_free(filename);
+		return;
+	}
+	
+	mbReturn = MessageBox(0, "Copy certificate public key to clipboard?\n\nHint: Copied in ssh authorized_keys format.",
+		"Copy public key", MB_ICONASTERISK | MB_YESNO | MB_TASKMODAL);
+
+	if (mbReturn == IDNO)
+		return;
+
+	capi_load_key(&filename, BinarySink_UPCAST(bblob));
+	buffer = snewn(strlen(key->key->vt->ssh_id) + 4 * ((bblob->len + 2) / 3) + strlen(key->comment) + 3, char);
+	strcpy(buffer, key->key->vt->ssh_id);
+	p = buffer + strlen(buffer);
+	*p++ = ' ';
+	i = 0;
+	while (i < bblob->len) {
+		int n = (bblob->len - i < 3 ? bblob->len - i : 3);
+		base64_encode_atom(bblob->s + i, n, p);
+		i += n;
+		p += 4;
+	}
+	*p++ = ' ';
+	strcpy(p, key->comment);
+	if (OpenClipboard(NULL)) {
+		hClipBuffer = GlobalAlloc(GMEM_MOVEABLE, strlen(buffer) + 1);
+		if (hClipBuffer) {
+			psz = (char *)GlobalLock(hClipBuffer);
+			strcpy(psz, buffer);
+			GlobalUnlock(hClipBuffer);
+			EmptyClipboard();
+			SetClipboardData(CF_TEXT, hClipBuffer);
+		}
+		CloseClipboard();
+		MessageBox(0, "Certificate public copied.", "Copy", MB_ICONINFORMATION | MB_OK | MB_TASKMODAL);
+	}
+	sfree(buffer);
+	strbuf_free(bblob);
+	filename_free(filename);
+}
+
+/*
+ * Copy 1'st selected key to clipboard in ssh authorized_keys format
+ */
+static void key_to_clipboard(HWND hwnd)
+{
+	int numSelected, *selectedArray;
+	if ((numSelected = SendDlgItemMessage(hwnd, 100, LB_GETSELCOUNT, 0, 0)) > 0) {
+		selectedArray = snewn(numSelected, int);
+		SendDlgItemMessage(hwnd, 100, LB_GETSELITEMS, numSelected, (WPARAM)selectedArray);
+		key_to_clipboard2(pageant_nth_ssh2_key(selectedArray[0]));
+		sfree(selectedArray);
+	}
+}
+#endif /* HAS_WINX509 */
+
 /*
  * Prompt for a key file to add, and add it.
  */
@@ -518,6 +622,13 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
             keylist = NULL;
             DestroyWindow(hwnd);
             return 0;
+#ifdef HAS_WINX509
+		case 100:		       /* key list */
+			if (HIWORD(wParam) == LBN_DBLCLK) {
+				key_to_clipboard(hwnd);
+			}
+			return 0;
+#endif /* HAS_WINX509 */
           case 101:                    /* add key */
             if (HIWORD(wParam) == BN_CLICKED ||
                 HIWORD(wParam) == BN_DOUBLECLICKED) {
@@ -1030,6 +1141,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             }
             prompt_add_keyfile();
             break;
+#ifdef HAS_WINX509
+		case IDM_ADDCERT:
+			prompt_add_capikey("cert://*");
+			break;
+		case IDM_ADDX509:
+			prompt_add_capikey("x509://*");
+			break;
+#endif /* HAS_WINX509 */
           case IDM_ABOUT:
             if (!aboutbox) {
                 aboutbox = CreateDialog(hinst, MAKEINTRESOURCE(213),
@@ -1316,6 +1435,10 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     AppendMenu(systray_menu, MF_ENABLED, IDM_VIEWKEYS,
            "&View Keys");
     AppendMenu(systray_menu, MF_ENABLED, IDM_ADDKEY, "Add &Key");
+#ifdef HAS_WINX509
+	AppendMenu(systray_menu, MF_ENABLED, IDM_ADDCERT, "Add &Certificate");
+	AppendMenu(systray_menu, MF_ENABLED, IDM_ADDX509, "Add &X509 Certificate");
+#endif /* HAS_WINX509 */
     AppendMenu(systray_menu, MF_SEPARATOR, 0, 0);
     if (has_help())
         AppendMenu(systray_menu, MF_ENABLED, IDM_HELP, "&Help");

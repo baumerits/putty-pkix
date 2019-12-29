@@ -1059,7 +1059,7 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
              * length, so add a placeholder here to fill in
              * afterwards */
             put_uint32(blob, 0);
-            if (!ssh2_userkey_loadpub(filename, NULL, BinarySink_UPCAST(blob),
+            if (!ssh2_userkey_loadpub(&filename, NULL, BinarySink_UPCAST(blob),
                                       NULL, &error)) {
                 *retstr = dupprintf("Couldn't load private key (%s)", error);
                 strbuf_free(blob);

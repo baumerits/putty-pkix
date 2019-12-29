@@ -150,7 +150,7 @@ check-local: testcrypt
 !end
 
 !begin vc vars
-CFLAGS = $(CFLAGS) /DHAS_GSSAPI
+CFLAGS = $(CFLAGS) /DHAS_GSSAPI /DHAS_WINX509
 !end
 
 !begin clangcl vars
@@ -225,7 +225,7 @@ endif
 # _WIN32_IE is required to expose identifiers that only make sense on
 # systems with IE5+ installed, such as some arguments to SHGetFolderPath().
 # WINVER etc perform a similar function for FlashWindowEx().
-CFLAGS += -D_WIN32_IE=0x0500
+CFLAGS += -D_WIN32_IE=0x0500 -DHAS_WINX509
 CFLAGS += -DWINVER=0x0500 -D_WIN32_WINDOWS=0x0410 -D_WIN32_WINNT=0x0500
 !end
 
@@ -275,7 +275,7 @@ SSH      = SSHCOMMON ssh ssh2bpp-bare
          + sshshare aqsync agentf
          + mainchan ssh2kex-client ssh2connection-client ssh1connection-client
 WINSSH   = SSH winnoise wincapi winpgntc wingss winshare winnps winnpc
-         + winhsock errsock
+         + winhsock errsock wincrypto
 UXSSH    = SSH uxnoise uxagentc uxgss uxshare
 
 # SFTP implementation (pscp, psftp).
@@ -307,7 +307,7 @@ CHARSET  = sbcsdat slookup sbcs utf8 toucs fromucs xenc mimeenc macenc localenc
 
 # Standard libraries.
 LIBS     = advapi32.lib user32.lib gdi32.lib comdlg32.lib
-         + shell32.lib imm32.lib ole32.lib
+         + shell32.lib imm32.lib ole32.lib crypt32.lib ncrypt.lib bcrypt.lib
 
 # Network backend sets. This also brings in the relevant attachment
 # to proxy.c depending on whether we're crypto-avoidant or not.
@@ -340,13 +340,13 @@ psftp    : [C] psftp winsftp wincons WINSSH BE_SSH SFTP wildcard WINMISC
 pageant  : [G] winpgnt pageant sshrsa sshpubk sshdes ARITH sshmd5 version
 	 + tree234 MISC sshaes sshsha winsecur winpgntc aqsync sshdss sshsh256
 	 + sshsh512 winutils sshecc winmisc winmiscs winhelp conf pageant.res
-	 + sshauxcrypt sshhmac LIBS
+	 + sshauxcrypt wincrypto sshhmac LIBS
 
 puttygen : [G] winpgen sshrsag sshdssg sshprime sshdes ARITH sshmd5 version
          + sshrand winnoise sshsha winstore MISC winctrls sshrsa sshdss winmisc
          + sshpubk sshaes sshsh256 sshsh512 IMPORT winutils puttygen.res
          + tree234 notiming winhelp winnojmp CONF LIBS wintime sshecc sshprng
-         + sshecdsag sshauxcrypt sshhmac winsecur winmiscs
+         + sshecdsag sshauxcrypt sshhmac winsecur winmiscs wincrypto
 
 pterm    : [X] GTKTERM uxmisc misc ldisc settings uxpty uxsel BE_NONE uxstore
          + uxsignal CHARSET cmdline uxpterm version time xpmpterm xpmptcfg
