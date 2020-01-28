@@ -57,10 +57,6 @@ Background
 ==========
 The PuTTY-pkix patch was created in order to ease the use of X509 SSH authentication with smartcards. The easiest way to go with this seemed to be using the windows crypto api for this. This enabled PuTTY-pkix to function without bothering with any direct card drivers and pkcs#11 implementations. PuTTY-pkixs also works for soft certificates and keys as well as with other non-smartcard hardware devices.
 
-Building
-========
-Check out [build.md](BUILD.md) for build instructions.
-
 Version History
 ===============
 
@@ -69,4 +65,3 @@ v0.73
  
 v0.70
   - First version.
- 
