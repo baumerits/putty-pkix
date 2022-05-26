@@ -140,3 +140,5 @@ Makefile
 /windows/*.msi
 /windows/*.wixobj
 /windows/*.wixpdb
+/.vs
+*.user
