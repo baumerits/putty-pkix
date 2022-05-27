@@ -246,6 +246,13 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
                          "https://www.chiark.greenend.org.uk/~sgtatham/putty/",
                          0, 0, SW_SHOWDEFAULT);
             return 0;
+          
+          case IDA_WEB_FORK:
+              /* Load web browser */
+              ShellExecute(hwnd, "open",
+                  "https://github.com/svenso/putty-cng",
+                  0, 0, SW_SHOWDEFAULT);
+              return 0;
         }
         return 0;
       case WM_CLOSE:
