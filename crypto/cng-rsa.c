@@ -594,7 +594,7 @@ cngrsa_sha512_extra = { SSH_AGENT_RSA_SHA2_512 };
     .cache_str = NULL,                \
     .components = NULL,              \
     .pubkey_bits = NULL,            \
-    .cache_id = "rsa2"
+    .cache_id = "cngrsa2"
 
 const ssh_keyalg ssh_cngrsa = {
 	COMMON_KEYALG_FIELDS,

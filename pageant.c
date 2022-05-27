@@ -1402,6 +1402,14 @@ bool pageant_delete_nth_ssh2_key(int i)
     return true;
 }
 
+ssh2_userkey* pageant_get_nth_ssh2_key(int i)
+{
+    PageantKey* pk = index234(keytree, find_first_key_for_version(2) + i);
+    if (!pk)
+        return NULL;
+    return pk->skey;
+}
+
 bool pageant_reencrypt_nth_ssh2_key(int i)
 {
     PageantKey *pk = index234(keytree, find_first_key_for_version(2) + i);
