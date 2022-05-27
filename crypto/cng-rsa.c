@@ -15,12 +15,10 @@
 #include <wincrypt.h>
 #include <bcrypt.h>
 #include <ncrypt.h>
-
-typedef PCCERT_CONTEXT(WINAPI* DFNCryptUIDlgSelectCertificateFromStore)(HCERTSTORE, HWND, LPCWSTR, LPCWSTR, DWORD, DWORD, PVOID);
-typedef LONG(WINAPI* DFNNCryptSignHash)(ULONG_PTR, PVOID, PBYTE, DWORD, PBYTE, DWORD, PDWORD, DWORD);
+#include <cryptuiapi.h>
 
 
-void capi_sha1_to_binary(PSTR szHex, PBYTE pbBin)
+void cngrsa_sha1_to_binary(PSTR szHex, PBYTE pbBin)
 {
 	unsigned char i, h, l;
 	for (i = 0; i < 20; i++) {
@@ -29,6 +27,20 @@ void capi_sha1_to_binary(PSTR szHex, PBYTE pbBin)
 		pbBin[i] =
 			(((h >= '0' && h <= '9') ? h - '0' : ((h >= 'a' && h <= 'f') ? h - 'a' + 10 : ((h >= 'A' && h <= 'F') ? h - 'A' + 10 : 0))) << 4) +
 			(((l >= '0' && l <= '9') ? l - '0' : ((l >= 'a' && l <= 'f') ? l - 'a' + 10 : ((l >= 'A' && l <= 'F') ? l - 'A' + 10 : 0))));
+	}
+}
+
+
+void cngrsa_sha1_from_binary(PBYTE pbBin, PSTR szHex, int startPos)
+{
+	unsigned char i, h, l;
+	char chrs[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+	for (i = 0; i < 20; i++) {
+		h = (pbBin[i + startPos] >> 4) & 0x0F;
+		l = pbBin[i + startPos] & 0x0F;
+		szHex[i * 2] = chrs[h];
+		szHex[i * 2 + 1] = chrs[l];
 	}
 }
 
@@ -145,7 +157,7 @@ static void cngrsa2_public_blob(ssh_key* key, BinarySink* bs)
 /*
  * Reverse a byte array.
  */
-static void capi_reverse_array(PBYTE pb, DWORD cb)
+static void cngrsa_reverse_array(PBYTE pb, DWORD cb)
 {
 	DWORD i;
 	BYTE t;
@@ -161,12 +173,12 @@ static void capi_reverse_array(PBYTE pb, DWORD cb)
  * Select a certificate given the criteria provided.
  * If a criterion is absent it will be disregarded.
  */
-static void capi_select_cert_2(PBYTE pbSHA1, LPWSTR wszCN, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE* phStore)
+static void cngrsa_select_cert_2(PBYTE pbSHA1, LPWSTR wszCN, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE* phStore)
 {
 	HCERTSTORE hStoreMY = NULL, hStoreTMP = NULL;
 	PCCERT_CONTEXT pCertCtx = NULL;
 	HMODULE hCryptUIDLL = NULL;
-	DFNCryptUIDlgSelectCertificateFromStore dfnCryptUIDlgSelectCertificateFromStore;
+	//DFNCryptUIDlgSelectCertificateFromStore dfnCryptUIDlgSelectCertificateFromStore;
 	CRYPT_HASH_BLOB cryptHashBlob;
 	DWORD dwCertCount = 0;
 	if (!(hStoreMY = CertOpenStore(CERT_STORE_PROV_SYSTEM, 0, 0, CERT_SYSTEM_STORE_CURRENT_USER, L"MY"))) {
@@ -207,12 +219,9 @@ static void capi_select_cert_2(PBYTE pbSHA1, LPWSTR wszCN, PCCERT_CONTEXT* ppCer
 		*phStore = hStoreTMP;
 		return;
 	}
-	else if ((dwCertCount > 1) &&
-		(hCryptUIDLL = LoadLibrary("cryptui.dll")) &&
-		(dfnCryptUIDlgSelectCertificateFromStore = (DFNCryptUIDlgSelectCertificateFromStore)GetProcAddress(hCryptUIDLL, "CryptUIDlgSelectCertificateFromStore")) &&
-		(*ppCertCtx = dfnCryptUIDlgSelectCertificateFromStore(hStoreTMP, NULL, NULL, NULL, 0, 0, NULL))) {
+	else if (dwCertCount > 1) {
+		*ppCertCtx = CryptUIDlgSelectCertificateFromStore(hStoreTMP, NULL, NULL, NULL, CRYPTUI_SELECT_EXPIRATION_COLUMN, 0, NULL);
 		*phStore = hStoreTMP;
-		FreeLibrary(hCryptUIDLL);
 		return;
 	}
 error:
@@ -226,7 +235,7 @@ error:
 /*
  * Return a malloc'ed string containing the requested subitem.
  */
-PSTR capi_select_cert_finditem(PSTR szCert, PCSTR szStart)
+PSTR cngrsa_select_cert_finditem(PSTR szCert, PCSTR szStart)
 {
 	PSTR ptrStart, ptrEnd, szResult;
 	ptrStart = strstr(szCert, szStart);
@@ -247,7 +256,7 @@ PSTR capi_select_cert_finditem(PSTR szCert, PCSTR szStart)
 /*
  * Select a certificate given the definition string.
  */
-static void capi_select_cert(PSTR szCert, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE* phStore)
+static void cngrsa_select_cert(PSTR szCert, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE* phStore)
 {
 	PSTR szCN = NULL, szThumb, ptrStart, ptrStartAll;
 	LPWSTR wszCN = NULL;
@@ -261,16 +270,16 @@ static void capi_select_cert(PSTR szCert, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE*
 		return;
 	}
 	if (ptrStartAll) {
-		capi_select_cert_2(NULL, NULL, ppCertCtx, phStore);
+		cngrsa_select_cert_2(NULL, NULL, ppCertCtx, phStore);
 		return;
 	}
-	szThumb = capi_select_cert_finditem(szCert, "thumbprint=");
+	szThumb = cngrsa_select_cert_finditem(szCert, "thumbprint=");
 	if (szThumb && 40 == strlen(szThumb)) {
-		capi_sha1_to_binary(szThumb, pbThumb);
-		capi_select_cert_2(pbThumb, NULL, ppCertCtx, phStore);
+		cngrsa_sha1_to_binary(szThumb, pbThumb);
+		cngrsa_select_cert_2(pbThumb, NULL, ppCertCtx, phStore);
 	}
 	else {
-		szCN = capi_select_cert_finditem(szCert, "cn=");
+		szCN = cngrsa_select_cert_finditem(szCert, "cn=");
 		if (szCN) {
 			len = strlen(szCN);
 			wszCN = (LPWSTR)calloc(len + 1, sizeof(wchar_t));
@@ -278,7 +287,7 @@ static void capi_select_cert(PSTR szCert, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE*
 				wszCN[i] = szCN[i];
 			}
 		}
-		capi_select_cert_2(NULL, wszCN, ppCertCtx, phStore);
+		cngrsa_select_cert_2(NULL, wszCN, ppCertCtx, phStore);
 	}
 	if (szCN) { free(szCN); }
 	if (wszCN) { free(wszCN); }
@@ -298,8 +307,10 @@ static ssh_key* cngrsa2_new_pub(const ssh_keyalg* self, ptrlen data)
 	RSAPUBKEY* pRSAPubKey;
 
 
-	capi_select_cert(data.ptr, &pCertCtx, &hCertStore);
-
+	cngrsa_select_cert(data.ptr, &pCertCtx, &hCertStore);
+	 
+	if (pCertCtx == NULL)
+		return NULL;
 
 	rsa = snew(RSAKey);
 	memset(rsa, 0, sizeof(RSAKey));
@@ -316,13 +327,29 @@ static ssh_key* cngrsa2_new_pub(const ssh_keyalg* self, ptrlen data)
 		return NULL;
 
 	pRSAPubKey = (RSAPUBKEY*)(pbPublicKeyBlob + sizeof(BLOBHEADER));
-	capi_reverse_array(pbPublicKeyBlob + sizeof(BLOBHEADER) + sizeof(RSAPUBKEY), pRSAPubKey->bitlen / 8);
+	cngrsa_reverse_array(pbPublicKeyBlob + sizeof(BLOBHEADER) + sizeof(RSAPUBKEY), pRSAPubKey->bitlen / 8);
 	rsa->sshk.vt = self;
 	rsa->exponent = mp_from_integer(pRSAPubKey->pubexp);
 	rsa->modulus = mp_from_bytes_be(make_ptrlen(pbPublicKeyBlob + sizeof(BLOBHEADER) + sizeof(RSAPUBKEY), pRSAPubKey->bitlen / 8));
 	rsa->iqmp = mp_from_bytes_be(make_ptrlen(pCertCtx->pbCertEncoded, pCertCtx->cbCertEncoded));
 	rsa->private_exponent = mp_from_integer(pCertCtx->cbCertEncoded);
-	rsa->comment = dupstr(data.ptr);
+
+	BYTE* thumbPrint = malloc(20);
+	if (thumbPrint) {
+		DWORD thumbPrintSize = 20;
+		if (!CryptHashCertificate(0, NULL, 0, pCertCtx->pbCertEncoded,
+			pCertCtx->cbCertEncoded, thumbPrint, &thumbPrintSize)) {
+			return false;
+		}
+		BYTE* strThumb = malloc(41);
+		if (strThumb) {
+			memset(strThumb, 0, 41);
+			cngrsa_sha1_from_binary(thumbPrint, strThumb, 0);
+			rsa->comment = dupprintf("cert://thumbprint=%s", strThumb);
+			free(strThumb);
+		}
+		free(thumbPrint);
+	}
 
 	// cleanup
 	sfree(pbPublicKeyBlob);
@@ -346,6 +373,25 @@ static ssh_key* cngrsa2_new_priv(const ssh_keyalg* self,
 	rsa = container_of(sshk, RSAKey, sshk);
 
 	rsa->comment = mkstr(pub);
+	return  &rsa->sshk;
+
+}
+
+
+static ssh_key* cngrsa2_new_priv_openssh(const ssh_keyalg* self,
+	BinarySource* src)
+{
+	ssh_key* sshk;
+	RSAKey* rsa;
+	ptrlen line;
+	line = get_string(src);
+	sshk = cngrsa2_new_pub(self, line);
+	if (!sshk)
+		return NULL;
+
+	rsa = container_of(sshk, RSAKey, sshk);
+
+	rsa->comment = mkstr(line);
 	return  &rsa->sshk;
 
 }
@@ -398,7 +444,7 @@ static void cngrsa2_sign(ssh_key* key, ptrlen data,
 		sign_alg_name = "ssh-rsa";
 	}
 
-	capi_select_cert(rsa->comment, &pCertCtx, &hCertStore);
+	cngrsa_select_cert(rsa->comment, &pCertCtx, &hCertStore);
 	if (pCertCtx)
 	{
 		if (CryptAcquireCertificatePrivateKey(pCertCtx, CRYPT_ACQUIRE_CACHE_FLAG | CRYPT_ACQUIRE_PREFER_NCRYPT_KEY_FLAG, 0, &hCryptProvOrNCryptKey, &dwSpec, &fCallerFreeProvAlwaysFalse)) {
@@ -420,7 +466,7 @@ static void cngrsa2_sign(ssh_key* key, ptrlen data,
 					goto Cleanup;
 				}
 
-				capi_reverse_array(pbSig, cbSig);
+				cngrsa_reverse_array(pbSig, cbSig);
 				put_stringz(bs, sign_alg_name);
 				put_uint32(bs, cbSig);
 				put_data(bs, pbSig, cbSig);
@@ -517,7 +563,7 @@ static char* cngrsa2_invalid(ssh_key* key, unsigned flags)
 	DWORD dwSpec, cbSig = 0;
 	BOOL fCallerFreeProvAlwaysFalse = TRUE;
 
-	capi_select_cert(rsa->comment, &pCertCtx, &hCertStore);
+	cngrsa_select_cert(rsa->comment, &pCertCtx, &hCertStore);
 	if (pCertCtx)
 	{
 		if (CryptAcquireCertificatePrivateKey(pCertCtx, CRYPT_ACQUIRE_CACHE_FLAG | CRYPT_ACQUIRE_PREFER_NCRYPT_KEY_FLAG, 0, &hCryptProvOrNCryptKey, &dwSpec, &fCallerFreeProvAlwaysFalse)) {
@@ -537,7 +583,7 @@ cngrsa_sha512_extra = { SSH_AGENT_RSA_SHA2_512 };
 #define COMMON_KEYALG_FIELDS                    \
     .new_pub = cngrsa2_new_pub,                    \
     .new_priv = cngrsa2_new_priv,                  \
-    .new_priv_openssh = NULL,  \
+    .new_priv_openssh = cngrsa2_new_priv_openssh,  \
     .freekey = cngrsa2_freekey,                    \
     .invalid = cngrsa2_invalid,                    \
     .sign = cngrsa2_sign,                          \
@@ -552,7 +598,7 @@ cngrsa_sha512_extra = { SSH_AGENT_RSA_SHA2_512 };
 
 const ssh_keyalg ssh_cngrsa = {
 	COMMON_KEYALG_FIELDS,
-	.ssh_id = "ssh-rsa",
+	.ssh_id = "ssh-cngrsa",
 	.supported_flags = SSH_AGENT_RSA_SHA2_256 | SSH_AGENT_RSA_SHA2_512,
 	.extra = &cngrsa_extra,
 };

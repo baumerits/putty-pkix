@@ -577,6 +577,7 @@ const ssh_keyalg *const all_keyalgs[] = {
     &ssh_ecdsa_nistp521,
     &ssh_ecdsa_ed25519,
     &ssh_ecdsa_ed448,
+    &ssh_cngrsa,
 };
 const size_t n_keyalgs = lenof(all_keyalgs);
 
@@ -1273,11 +1274,16 @@ bool ppk_loadpub_s(BinarySource *src, char **algorithm, BinarySink *bs,
         line = read_body(src);
         ret->key = ssh_key_new_pub(
             &ssh_cngrsa, make_ptrlen(line, strlen(line)));
+        if (ret->key == NULL) {
+            error = "no certificate selected";
+            goto error;
+        }
+        RSAKey* rsa = container_of(ret->key, RSAKey, sshk);
         ssh_key_public_blob(ret->key, BinarySink_UPCAST(bs));
         if (algorithm)
             *algorithm = dupstr("ssh-rsa");
         if (commentptr)
-            *commentptr = dupstr(line);
+            *commentptr = dupstr(rsa->comment);
         return true;
     } else if (type != SSH_KEYTYPE_SSH2) {
         error = "not a PuTTY SSH-2 private key";

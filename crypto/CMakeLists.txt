@@ -8,6 +8,7 @@ add_sources_from_current_dir(crypto
   blake2.c
   blowfish.c
   chacha20-poly1305.c
+  cng-rsa.c
   crc32.c
   des.c
   diffie-hellman.c

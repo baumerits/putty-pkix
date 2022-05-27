@@ -68,6 +68,7 @@ static filereq *keypath = NULL;
 #define IDM_HELP               0x0070
 #define IDM_ABOUT              0x0080
 #define IDM_PUTTY              0x0090
+#define IDM_ADDCERTIFICATE     0x00A0
 #define IDM_SESSIONS_BASE      0x1000
 #define IDM_SESSIONS_MAX       0x2000
 #define PUTTY_REGKEY      "Software\\SimonTatham\\PuTTY\\Sessions"
@@ -493,6 +494,33 @@ static void win_add_keyfile(Filename *filename, bool encrypted)
     sfree(err);
     return;
 }
+
+/*
+ * Prompt for a key file to add, and add it.
+ */
+static void prompt_add_certificate()
+{
+    char* filelist = snewn(8192, char);
+
+    char* err;
+    Filename* fn = filename_from_str("cert://*");
+    pageant_add_keyfile(fn, NULL, &err, false);
+    if (err == PAGEANT_ACTION_OK) {
+        keylist_update();
+    }
+    else {
+        message_box(NULL,err, APPNAME, MB_OK | MB_ICONERROR, HELPCTXID(errors_cantloadkey));
+    }
+    filename_free(fn);
+    if (err != NULL)
+        sfree(err);
+
+    keylist_update();
+    pageant_forget_passphrases();
+    
+    sfree(filelist);
+}
+
 
 /*
  * Prompt for a key file to add, and add it.
@@ -1216,6 +1244,9 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
             }
             prompt_add_keyfile(command == IDM_ADDKEY_ENCRYPTED);
             break;
+          case IDM_ADDCERTIFICATE:
+              prompt_add_certificate();
+              break;
           case IDM_REMOVE_ALL:
             pageant_delete_all();
             keylist_update();
@@ -1711,6 +1742,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     AppendMenu(systray_menu, MF_ENABLED, IDM_ADDKEY, "Add &Key");
     AppendMenu(systray_menu, MF_ENABLED, IDM_ADDKEY_ENCRYPTED,
                "Add key (encrypted)");
+    AppendMenu(systray_menu, MF_ENABLED, IDM_ADDCERTIFICATE,
+        "Add &certificate");
     AppendMenu(systray_menu, MF_SEPARATOR, 0, 0);
     AppendMenu(systray_menu, MF_ENABLED, IDM_REMOVE_ALL,
                "Remove All Keys");

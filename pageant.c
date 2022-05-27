@@ -1953,7 +1953,7 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
     *retstr = NULL;
 
     type = key_type(filename);
-    if (type != SSH_KEYTYPE_SSH1 && type != SSH_KEYTYPE_SSH2) {
+    if (type != SSH_KEYTYPE_SSH1 && type != SSH_KEYTYPE_SSH2 && type != SSH_KEYTYPE_WINDOWS_CNGKEY) {
         *retstr = dupprintf("Couldn't load this key (%s)",
                             key_type_to_str(type));
         return PAGEANT_ACTION_FAILURE;
@@ -1982,7 +1982,7 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
             kl = pageant_get_keylist(1);
         } else {
             if (!ppk_loadpub_f(filename, NULL, BinarySink_UPCAST(blob),
-                               NULL, &error)) {
+                               &comment, &error)) {
                 *retstr = dupprintf("Couldn't load private key (%s)", error);
                 strbuf_free(blob);
                 return PAGEANT_ACTION_FAILURE;
@@ -2082,6 +2082,8 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
     error = NULL;
     if (type == SSH_KEYTYPE_SSH1)
         needs_pass = rsa1_encrypted_f(filename, &comment);
+    else if (type == SSH_KEYTYPE_WINDOWS_CNGKEY)
+        needs_pass = false;
     else
         needs_pass = ppk_encrypted_f(filename, &comment);
     attempts = 0;
@@ -2120,6 +2122,13 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
 
         if (type == SSH_KEYTYPE_SSH1)
             ret = rsa1_load_f(filename, rkey, this_passphrase, &error);
+        else if (type == SSH_KEYTYPE_WINDOWS_CNGKEY) {
+            skey = ppk_load_f(filename_from_str(comment), this_passphrase, &error);
+            if (!skey)
+                ret = 0;
+            else
+                ret = 1;
+        }
         else {
             skey = ppk_load_f(filename, this_passphrase, &error);
             if (skey == SSH2_WRONG_PASSPHRASE)
@@ -2190,7 +2199,27 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
                              "refused to add the key.");
             return PAGEANT_ACTION_FAILURE;
         }
-    } else {
+    }
+    else if (type == SSH_KEYTYPE_WINDOWS_CNGKEY) {
+        PageantClientOp* pco = pageant_client_op_new();
+        put_byte(pco, SSH2_AGENTC_ADD_IDENTITY);
+        put_stringz(pco, ssh_key_ssh_id(skey->key));
+        put_stringz(pco, skey->comment);
+        put_stringz(pco, skey->comment);
+        unsigned reply = pageant_client_op_query(pco);
+        pageant_client_op_free(pco);
+
+        sfree(skey->comment);
+        sfree(skey);
+
+        if (reply != SSH_AGENT_SUCCESS) {
+            *retstr = dupstr("The already running agent "
+                "refused to add the key.");
+            return PAGEANT_ACTION_FAILURE;
+        }
+    } 
+    else {
+    
         PageantClientOp *pco = pageant_client_op_new();
         put_byte(pco, SSH2_AGENTC_ADD_IDENTITY);
         put_stringz(pco, ssh_key_ssh_id(skey->key));
