@@ -595,7 +595,7 @@ static void key_to_clipboard(HWND hwnd)
         SendDlgItemMessage(hwnd, IDC_KEYLIST_LISTBOX, LB_GETSELITEMS,
             numSelected, (WPARAM)selectedArray);
 
-        itemNum = numSelected - 1;
+        itemNum = *selectedArray;
         ssh2_userkey* key = pageant_get_nth_ssh2_key(itemNum);
         key_to_clipboard2(key);
         sfree(selectedArray);
