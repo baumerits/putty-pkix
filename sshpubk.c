@@ -91,6 +91,14 @@ LoadFileStatus lf_load_fp(LoadedFile *lf, FILE *fp)
 
 LoadFileStatus lf_load(LoadedFile *lf, const Filename *filename)
 {
+    if (0 == strncmp("cert://", filename->path, 7)) {
+        memcpy(lf->data, "cert: ssh-rsa\n", 14);
+        memcpy(lf->data + 14, filename->path, strlen(filename->path));
+        lf->len = 14 + strlen(filename->path);
+        BinarySource_INIT(lf, lf->data, lf->len);
+        return LF_OK;
+    }
+
     FILE *fp = f_open(filename, "rb", false);
     if (!fp)
         return LF_ERROR;
@@ -569,6 +577,7 @@ const ssh_keyalg *const all_keyalgs[] = {
     &ssh_ecdsa_nistp521,
     &ssh_ecdsa_ed25519,
     &ssh_ecdsa_ed448,
+    &ssh_cngrsa,
 };
 const size_t n_keyalgs = lenof(all_keyalgs);
 
@@ -704,6 +713,7 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
     unsigned fmt_version;
     const char *error = NULL;
     ppk_save_parameters params;
+    bool is_cert = false;
 
     ret = NULL;                        /* return NULL for most errors */
     encryption = comment = mac = NULL;
@@ -727,13 +737,45 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
          * more specific error message than the generic one below */
         error = "PuTTY key format too new";
         goto error;
-    } else {
+    } else if (0 == strncmp(header, "cert", 4)) {
+        is_cert = true;
+    }
+    else {
         error = "not a PuTTY SSH-2 private key";
         goto error;
     }
     error = "file format error";
     if ((b = read_body(src)) == NULL)
         goto error;
+
+    if (is_cert) {
+        /* Select key algorithm structure. */
+        alg = &ssh_cngrsa;
+
+        public_blob = strbuf_new_nm();
+
+        char* line;
+        int linelen;
+
+        line = read_body(src);
+        linelen = strlen(line);
+
+        ssh2_userkey* ret;
+        ret = snew(ssh2_userkey);
+        ret->comment = line;
+        ret->key = ssh_key_new_pub(
+            &ssh_cngrsa, make_ptrlen(line, strlen(line)));
+        ssh_key_public_blob(ret->key, BinarySink_UPCAST(public_blob));
+        
+        if (!ret->key) {
+            sfree(ret);
+            ret = NULL;
+            error = "createkey failed";
+            goto error;
+        }
+        return ret;
+    }
+
     /* Select key algorithm structure. */
     alg = find_pubkey_alg(b);
     if (!alg) {
@@ -1225,6 +1267,24 @@ bool ppk_loadpub_s(BinarySource *src, char **algorithm, BinarySink *bs,
     } else if (type == SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH) {
         bool ret = openssh_loadpub(src, algorithm, bs, commentptr, errorstr);
         return ret;
+    } else if (type == SSH_KEYTYPE_WINDOWS_CNGKEY) {
+        ssh2_userkey* ret;
+        ret = snew(ssh2_userkey);
+        char* line = read_body(src);
+        line = read_body(src);
+        ret->key = ssh_key_new_pub(
+            &ssh_cngrsa, make_ptrlen(line, strlen(line)));
+        if (ret->key == NULL) {
+            error = "no certificate selected";
+            goto error;
+        }
+        RSAKey* rsa = container_of(ret->key, RSAKey, sshk);
+        ssh_key_public_blob(ret->key, BinarySink_UPCAST(bs));
+        if (algorithm)
+            *algorithm = dupstr("ssh-rsa");
+        if (commentptr)
+            *commentptr = dupstr(rsa->comment);
+        return true;
     } else if (type != SSH_KEYTYPE_SSH2) {
         error = "not a PuTTY SSH-2 private key";
         goto error;
@@ -1844,6 +1904,8 @@ static int key_type_s_internal(BinarySource *src)
         PTRLEN_DECL_LITERAL("-----BEGIN OPENSSH PRIVATE KEY");
     static const ptrlen openssh_sig =
         PTRLEN_DECL_LITERAL("-----BEGIN ");
+    static const ptrlen windows_cng =
+        PTRLEN_DECL_LITERAL("cert: ");
 
     if (BinarySource_REWIND(src), expect_signature(src, rsa1_signature))
         return SSH_KEYTYPE_SSH1;
@@ -1857,6 +1919,8 @@ static int key_type_s_internal(BinarySource *src)
         return SSH_KEYTYPE_OPENSSH_PEM;
     if (BinarySource_REWIND(src), expect_signature(src, sshcom_sig))
         return SSH_KEYTYPE_SSHCOM;
+    if (BinarySource_REWIND(src), expect_signature(src, windows_cng))
+        return SSH_KEYTYPE_WINDOWS_CNGKEY;
 
     BinarySource_REWIND(src);
     if (get_chars(src, "0123456789").len > 0 && get_chars(src, " ").len == 1 &&
@@ -1923,6 +1987,8 @@ const char *key_type_to_str(int type)
         return "OpenSSH SSH-2 private key (new format)";
       case SSH_KEYTYPE_SSHCOM:
         return "ssh.com SSH-2 private key";
+      case SSH_KEYTYPE_WINDOWS_CNGKEY:
+          return "Windows CNG Key";
 
         /*
          * This function is called with a key type derived from

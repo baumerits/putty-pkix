@@ -24,6 +24,7 @@
 #define IDA_TEXT        1002
 #define IDA_LICENCE     1003
 #define IDA_WEB         1004
+#define IDA_WEB_FORK    1005
 
 #define IDC_TAB         1001
 #define IDC_TABSTATIC1  1002

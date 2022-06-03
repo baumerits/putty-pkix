@@ -68,6 +68,7 @@ static filereq *keypath = NULL;
 #define IDM_HELP               0x0070
 #define IDM_ABOUT              0x0080
 #define IDM_PUTTY              0x0090
+#define IDM_ADDCERTIFICATE     0x00A0
 #define IDM_SESSIONS_BASE      0x1000
 #define IDM_SESSIONS_MAX       0x2000
 #define PUTTY_REGKEY      "Software\\SimonTatham\\PuTTY\\Sessions"
@@ -162,6 +163,12 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
                          "https://www.chiark.greenend.org.uk/~sgtatham/putty/",
                          0, 0, SW_SHOWDEFAULT);
             return 0;
+          case IDC_ABOUT_WEBSITE_FORK:
+              /* Load web browser */
+              ShellExecute(hwnd, "open",
+                  "https://github.com/svenso/putty-cng",
+                  0, 0, SW_SHOWDEFAULT);
+              return 0;
         }
         return 0;
       case WM_CLOSE:
@@ -497,6 +504,107 @@ static void win_add_keyfile(Filename *filename, bool encrypted)
 /*
  * Prompt for a key file to add, and add it.
  */
+static void prompt_add_certificate()
+{
+    char* filelist = snewn(8192, char);
+
+    char* err;
+    Filename* fn = filename_from_str("cert://*");
+    pageant_add_keyfile(fn, NULL, &err, false);
+    if (err == PAGEANT_ACTION_OK) {
+        keylist_update();
+    }
+    else {
+        message_box(NULL,err, APPNAME, MB_OK | MB_ICONERROR, HELPCTXID(errors_cantloadkey));
+    }
+    filename_free(fn);
+    if (err != NULL)
+        sfree(err);
+
+    keylist_update();
+    pageant_forget_passphrases();
+    
+    sfree(filelist);
+}
+
+/*
+* Copy key to clipboard in ssh authorized_keys format
+*/
+static void key_to_clipboard2(struct ssh2_userkey* key)
+{
+    BinarySink* bs;
+    char* buffer, * p, * psz;
+    int  i, mbReturn;
+    HGLOBAL hClipBuffer;
+    strbuf* bblob;
+
+    mbReturn = MessageBox(0, "Copy certificate public key to clipboard?\n\nHint: Copied in ssh authorized_keys format.",
+        "Copy public key", MB_ICONASTERISK | MB_YESNO | MB_TASKMODAL);
+
+    if (mbReturn == IDNO)
+        return;
+
+    bblob = strbuf_new();
+    ssh_key_public_blob(key->key, BinarySink_UPCAST(bblob));
+    buffer = snewn(strlen(key->key->vt->ssh_id) + 4 * ((bblob->len + 2) / 3) + strlen(key->comment) + 3, char);
+    if (!strncmp(key->key->vt->ssh_id, "ssh-cngrsa", 10)) {
+        strcpy(buffer, "ssh-rsa");
+    } else
+        strcpy(buffer, key->key->vt->ssh_id);
+    p = buffer + strlen(buffer);
+    *p++ = ' ';
+    i = 0;
+    while (i < bblob->len) {
+        int n = (bblob->len - i < 3 ? bblob->len - i : 3);
+        base64_encode_atom(bblob->s + i, n, p);
+        i += n;
+        p += 4;
+    }
+    *p++ = ' ';
+    strcpy(p, key->comment);
+    if (OpenClipboard(NULL)) {
+        hClipBuffer = GlobalAlloc(GMEM_MOVEABLE, strlen(buffer) + 1);
+        if (hClipBuffer) {
+            psz = (char*)GlobalLock(hClipBuffer);
+            strcpy(psz, buffer);
+            GlobalUnlock(hClipBuffer);
+            EmptyClipboard();
+            SetClipboardData(CF_TEXT, hClipBuffer);
+        }
+        CloseClipboard();
+        MessageBox(0, "Certificate public copied.", "Copy", MB_ICONINFORMATION | MB_OK | MB_TASKMODAL);
+    }
+    sfree(buffer);
+    strbuf_free(bblob);
+}
+
+/*
+ * Copy 1'st selected key to clipboard in ssh authorized_keys format
+ */
+static void key_to_clipboard(HWND hwnd)
+{
+    int numSelected, * selectedArray;
+    int itemNum;
+
+    if ((numSelected = SendDlgItemMessage(hwnd, 100, LB_GETSELCOUNT, 0, 0)) > 0) {
+        selectedArray = snewn(numSelected, int);
+        SendDlgItemMessage(hwnd, 100, LB_GETSELITEMS, numSelected, (WPARAM)selectedArray);
+
+        /* get item indices in an array */
+        selectedArray = snewn(numSelected, int);
+        SendDlgItemMessage(hwnd, IDC_KEYLIST_LISTBOX, LB_GETSELITEMS,
+            numSelected, (WPARAM)selectedArray);
+
+        itemNum = numSelected - 1;
+        ssh2_userkey* key = pageant_get_nth_ssh2_key(itemNum);
+        key_to_clipboard2(key);
+        sfree(selectedArray);
+    }
+}
+
+/*
+ * Prompt for a key file to add, and add it.
+ */
 static void prompt_add_keyfile(bool encrypted)
 {
     OPENFILENAME of;
@@ -606,6 +714,11 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
       }
       case WM_COMMAND:
         switch (LOWORD(wParam)) {
+          case 100:		       /* key list */
+            if (HIWORD(wParam) == LBN_DBLCLK) {
+                key_to_clipboard(hwnd);
+            }
+            return 0;
           case IDOK:
           case IDCANCEL:
             keylist = NULL;
@@ -621,6 +734,12 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
                     break;
                 }
                 prompt_add_keyfile(LOWORD(wParam) == IDC_KEYLIST_ADDKEY_ENC);
+            }
+            return 0;
+          case IDC_KEYLIST_ADDCERTIFICATE:
+            if (HIWORD(wParam) == BN_CLICKED ||
+                HIWORD(wParam) == BN_DOUBLECLICKED) {
+                prompt_add_certificate();
             }
             return 0;
           case IDC_KEYLIST_REMOVE:
@@ -1216,6 +1335,9 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
             }
             prompt_add_keyfile(command == IDM_ADDKEY_ENCRYPTED);
             break;
+          case IDM_ADDCERTIFICATE:
+              prompt_add_certificate();
+              break;
           case IDM_REMOVE_ALL:
             pageant_delete_all();
             keylist_update();
@@ -1711,6 +1833,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     AppendMenu(systray_menu, MF_ENABLED, IDM_ADDKEY, "Add &Key");
     AppendMenu(systray_menu, MF_ENABLED, IDM_ADDKEY_ENCRYPTED,
                "Add key (encrypted)");
+    AppendMenu(systray_menu, MF_ENABLED, IDM_ADDCERTIFICATE,
+        "Add &certificate");
     AppendMenu(systray_menu, MF_SEPARATOR, 0, 0);
     AppendMenu(systray_menu, MF_ENABLED, IDM_REMOVE_ALL,
                "Remove All Keys");

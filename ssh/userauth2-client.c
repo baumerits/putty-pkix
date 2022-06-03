@@ -279,13 +279,15 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
         keytype = key_type(s->keyfile);
         if (keytype == SSH_KEYTYPE_SSH2 ||
             keytype == SSH_KEYTYPE_SSH2_PUBLIC_RFC4716 ||
-            keytype == SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH) {
+            keytype == SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH ||
+            keytype == SSH_KEYTYPE_WINDOWS_CNGKEY
+            ) {
             const char *error;
             s->publickey_blob = strbuf_new();
             if (ppk_loadpub_f(s->keyfile, &s->publickey_algorithm,
                               BinarySink_UPCAST(s->publickey_blob),
                               &s->publickey_comment, &error)) {
-                s->privatekey_available = (keytype == SSH_KEYTYPE_SSH2);
+                s->privatekey_available = (keytype == SSH_KEYTYPE_SSH2 || keytype == SSH_KEYTYPE_WINDOWS_CNGKEY);
                 if (!s->privatekey_available)
                     ppl_logevent("Key file contains public key only");
                 s->privatekey_encrypted = ppk_encrypted_f(s->keyfile, NULL);

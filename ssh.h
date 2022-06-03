@@ -1052,6 +1052,7 @@ extern const ssh2_macalg ssh_hmac_sha1_96_buggy;
 extern const ssh2_macalg ssh_hmac_sha256;
 extern const ssh2_macalg ssh2_poly1305;
 extern const ssh_compression_alg ssh_zlib;
+extern const ssh_keyalg ssh_cngrsa;
 
 /* Special constructor: BLAKE2b can be instantiated with any hash
  * length up to 128 bytes */
@@ -1352,7 +1353,12 @@ enum {
      */
     SSH_KEYTYPE_SSH1_PUBLIC,
     SSH_KEYTYPE_SSH2_PUBLIC_RFC4716,
-    SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH
+    SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH,
+
+    /*
+     * Use windows CNG KeyProvider 
+     */
+    SSH_KEYTYPE_WINDOWS_CNGKEY
 };
 
 typedef enum {
